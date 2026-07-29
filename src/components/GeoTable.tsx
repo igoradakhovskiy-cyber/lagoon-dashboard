@@ -6,7 +6,7 @@ import { Card, InfoDot, SectionTitle, Segmented } from './ui'
 import { int, money, moneySmart, pct, plural } from '../lib/format'
 import { COLORS, GEO_HINT } from '../config'
 
-const SHOW = 10
+const SHOW = 8
 type SortKey = 'spend' | 'qual' | 'cpql'
 
 /**
@@ -59,7 +59,7 @@ export default function GeoTable({
     <Card className="p-5">
       <SectionTitle
         title="География"
-        subtitle={`${delivered.length} ${plural(delivered.length, 'страна', 'страны', 'стран')} с расходом за период`}
+        subtitle={`${delivered.length} ${plural(delivered.length, 'страна', 'страны', 'стран')} за период`}
         right={
           <Segmented
             value={sort}
@@ -78,9 +78,9 @@ export default function GeoTable({
       ) : (
         <>
           <div className="overflow-x-auto -mx-1">
-            <table className="w-full text-sm min-w-[620px]">
+            <table className="w-full text-[13px] min-w-[500px]">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wide text-dim">
+                <tr className="text-left text-[10px] uppercase tracking-wide text-dim">
                   <th className="font-medium py-1.5 pl-1">
                     <span className="inline-flex items-center gap-1.5">
                       Страна <InfoDot text={GEO_HINT} />
@@ -100,7 +100,7 @@ export default function GeoTable({
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t border-line text-[13px]">
+                <tr className="border-t border-line">
                   <td className="py-2 pl-1 text-mute font-medium">Итого</td>
                   <td className="py-2 text-right tabular text-ink font-medium">
                     {money(totals.spend)}

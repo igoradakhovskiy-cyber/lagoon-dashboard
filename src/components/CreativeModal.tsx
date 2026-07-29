@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CreativeGroup, Metrics } from '../types'
 import type { Index } from '../lib/data'
-import { assetUrl, COLORS } from '../config'
+import { assetUrl, COLORS, QUAL_HINT } from '../config'
 import { int, money, moneySmart, pct } from '../lib/format'
 import { LangBadge, PendingBadge } from './ui'
 
@@ -91,10 +91,29 @@ export default function CreativeModal({
               <Stat label="Показы" value={int(m.impressions)} />
               <Stat label="Клики" value={int(m.clicks)} />
               <Stat label="CTR" value={pct(m.ctr)} color={COLORS.ctr} />
-              <Stat label="CPM" value={moneySmart(m.cpm)} />
-              <Stat label="CPC" value={moneySmart(m.cpc)} />
-              <Stat label="Квал-лиды" value="—" pending />
+              {m.qual_leads !== null ? (
+                <>
+                  <Stat label="Квал-лиды" value={int(m.qual_leads)} color={COLORS.qual} />
+                  <Stat
+                    label="Цена квала"
+                    value={m.qual_leads ? moneySmart(m.cpql!) : '—'}
+                    color={COLORS.gold}
+                  />
+                  <Stat label="% квала" value={pct(m.qual_rate || 0, 1)} color={COLORS.qual} />
+                </>
+              ) : (
+                <>
+                  <Stat label="CPM" value={moneySmart(m.cpm)} />
+                  <Stat label="CPC" value={moneySmart(m.cpc)} />
+                  <Stat label="Квал-лиды" value="—" pending />
+                </>
+              )}
             </div>
+            {m.qual_leads !== null && (
+              <p className="mt-2 text-[11px] text-dim">
+                {QUAL_HINT} Лидов в CRM за период: {int(m.crm_leads || 0)} (в Meta {int(m.leads)}).
+              </p>
+            )}
 
             {campaigns.length > 0 && (
               <div className="mt-4">

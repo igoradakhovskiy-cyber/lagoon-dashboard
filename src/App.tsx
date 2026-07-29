@@ -93,10 +93,10 @@ export default function App() {
             <LangSplit rows={rows} idx={idx} total={metrics} crmRows={crmRows} />
           </div>
           {ds.crm && (
-            <>
-              <GeoTable ds={ds} idx={idx} filters={filters} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <SalesFunnel ds={ds} idx={idx} filters={filters} />
-            </>
+              <GeoTable ds={ds} idx={idx} filters={filters} />
+            </div>
           )}
           <Campaigns ds={ds} idx={idx} rows={rows} crmRows={crmRows} />
           <CreativeGallery ds={ds} idx={idx} rows={rows} crmRows={crmRows} />
