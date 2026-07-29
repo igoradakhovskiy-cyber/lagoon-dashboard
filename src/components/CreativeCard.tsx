@@ -57,11 +57,28 @@ export default function CreativeCard({
           {group.key}
         </div>
         <div className="mt-1.5 flex items-end gap-3">
-          <Metric label="Лиды" value={int(m.leads)} color={COLORS.leads} big />
-          <Metric label="CPL" value={moneySmart(m.cpl)} color={COLORS.gold} />
-          <Metric label="CTR" value={pct(m.ctr, 1)} color="#cdd6e6" />
+          {m.qual_leads !== null ? (
+            <>
+              <Metric label="Квалы" value={int(m.qual_leads)} color={COLORS.qual} big />
+              <Metric
+                label="CPQL"
+                value={m.qual_leads ? moneySmart(m.cpql!) : '—'}
+                color={m.qual_leads ? COLORS.gold : '#8b93a5'}
+              />
+              <Metric label="Лиды" value={int(m.leads)} color="#cdd6e6" />
+            </>
+          ) : (
+            <>
+              <Metric label="Лиды" value={int(m.leads)} color={COLORS.leads} big />
+              <Metric label="CPL" value={moneySmart(m.cpl)} color={COLORS.gold} />
+              <Metric label="CTR" value={pct(m.ctr, 1)} color="#cdd6e6" />
+            </>
+          )}
         </div>
-        <div className="mt-1 text-[11px] text-white/55 tabular">Расход {money(m.spend)}</div>
+        <div className="mt-1 text-[11px] text-white/55 tabular">
+          Расход {money(m.spend)}
+          {m.qual_leads !== null && <> · CPL {moneySmart(m.cpl)}</>}
+        </div>
       </div>
     </button>
   )

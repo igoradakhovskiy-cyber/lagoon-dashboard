@@ -100,6 +100,20 @@ export function Delta({ value, goodWhenLow = false }: { value: number; goodWhenL
   )
 }
 
+/** Small "?" affordance carrying an explanation in the native tooltip. */
+export function InfoDot({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      aria-label={text}
+      className="inline-grid h-3.5 w-3.5 place-items-center rounded-full border border-line
+                 text-[9px] font-bold text-dim cursor-help select-none align-middle"
+    >
+      ?
+    </span>
+  )
+}
+
 export function PendingBadge({ label = 'ждёт CRM' }: { label?: string }) {
   return (
     <span

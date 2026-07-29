@@ -26,16 +26,29 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+
+      # Meta and the CRM sheet are fetched in the SAME run, so the two sides of the
+      # join always describe one moment in time and cannot drift apart.
       - name: Fetch fresh Meta data + creatives
         env:
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           META_ACCOUNT_ID: ${{ vars.META_ACCOUNT_ID }}
           META_API_VERSION: v21.0
         run: node scripts/fetch-meta.mjs
+
+      # Reads the CRM export straight from the link-shared Google Sheet — no OAuth,
+      # no service account. Fails loudly if the layout changes or the join breaks.
+      # SHEET_ID is optional: the script defaults to the Lagoon sheet.
+      - name: Join CRM data from Google Sheets
+        env:
+          SHEET_ID: ${{ vars.SHEET_ID }}
+        run: node scripts/fetch-crm.mjs
+
       - name: Encrypt dataset with the dashboard password
         env:
           DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
         run: node scripts/encrypt-data.mjs
+
       - run: npm run build
       - uses: actions/configure-pages@v5
         with:

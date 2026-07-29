@@ -1,4 +1,4 @@
-import type { DailyRow, Metrics } from '../types'
+import type { CrmDaily, DailyRow, Metrics } from '../types'
 import type { Index } from '../lib/data'
 import { splitByLang } from '../lib/data'
 import { Card, SectionTitle } from './ui'
@@ -9,13 +9,16 @@ export default function LangSplit({
   rows,
   idx,
   total,
+  crmRows,
 }: {
   rows: DailyRow[]
   idx: Index
   total: Metrics
+  crmRows: CrmDaily[] | null
 }) {
-  const split = splitByLang(rows, idx)
+  const split = splitByLang(rows, idx, crmRows)
   const totalSpend = total.spend || 1
+  const hasCrm = !!crmRows
 
   return (
     <Card className="p-5">
@@ -35,7 +38,7 @@ export default function LangSplit({
       </div>
 
       <div className="overflow-x-auto -mx-1">
-        <table className="w-full text-sm min-w-[420px]">
+        <table className="w-full text-sm min-w-[520px]">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wide text-dim">
               <th className="font-medium py-1.5 pl-1">Поток</th>
@@ -43,6 +46,8 @@ export default function LangSplit({
               <th className="font-medium py-1.5 text-right">Доля</th>
               <th className="font-medium py-1.5 text-right">Лиды</th>
               <th className="font-medium py-1.5 text-right">CPL</th>
+              {hasCrm && <th className="font-medium py-1.5 text-right">Квалы</th>}
+              {hasCrm && <th className="font-medium py-1.5 text-right">CPQL</th>}
               <th className="font-medium py-1.5 text-right pr-1">CTR</th>
             </tr>
           </thead>
@@ -64,12 +69,25 @@ export default function LangSplit({
                 </td>
                 <td className="py-2 text-right tabular text-ink">{int(s.metrics.leads)}</td>
                 <td className="py-2 text-right tabular text-ink">{moneySmart(s.metrics.cpl)}</td>
+                {hasCrm && (
+                  <td
+                    className="py-2 text-right tabular font-medium"
+                    style={{ color: s.metrics.qual_leads ? COLORS.qual : COLORS.dim }}
+                  >
+                    {int(s.metrics.qual_leads || 0)}
+                  </td>
+                )}
+                {hasCrm && (
+                  <td className="py-2 text-right tabular text-ink">
+                    {s.metrics.qual_leads ? moneySmart(s.metrics.cpql!) : '—'}
+                  </td>
+                )}
                 <td className="py-2 text-right tabular text-mute pr-1">{pct(s.metrics.ctr)}</td>
               </tr>
             ))}
             {split.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-4 text-center text-dim">
+                <td colSpan={hasCrm ? 8 : 6} className="py-4 text-center text-dim">
                   Нет данных за период
                 </td>
               </tr>

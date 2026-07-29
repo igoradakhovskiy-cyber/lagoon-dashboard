@@ -67,12 +67,79 @@ export interface CreativeGroup {
   campaign_ids: string[]
 }
 
+/** Meta spend/leads for one day × campaign × delivery country (ISO-3166 alpha-2). */
+export interface GeoMetaRow {
+  date: string
+  campaign_id: string
+  country: string
+  spend: number
+  impressions: number
+  clicks: number
+  leads: number
+}
+
+/** One CRM day × campaign × adset × creative bucket. `ad_key` is the ad name. */
+export interface CrmDaily {
+  date: string
+  campaign_id: string
+  adset_id: string | null
+  ad_key: string | null // null when utm_content was missing or the ad is gone
+  leads: number
+  qual: number
+}
+
+export interface CrmStageRow {
+  date: string
+  campaign_id: string
+  stage: string // e.g. "Первый контакт"
+  n: number
+}
+
+/** CRM leads/quals for one day × campaign × country, country already ISO-coded. */
+export interface CrmGeoRow {
+  date: string
+  campaign_id: string
+  country: string
+  leads: number
+  qual: number
+}
+
+/** Rows the join could not attribute — surfaced, never silently dropped. */
+export interface CrmUnmatched {
+  unknown_campaign: number // older flight, outside the dashboard window
+  unknown_ad: number // campaign matched, utm_content missing or ad deleted
+  macro: number // Meta never substituted the {{...}} macro
+  no_utm: number
+  bad_date: number
+  out_of_window: number
+  unknown_country: number
+  examples: Record<string, string[]>
+}
+
+export interface Crm {
+  source: string
+  sheet_id: string
+  tab: string
+  fetched_at: string
+  qual_value: string
+  rows_total: number
+  rows_in_window: number
+  rows_matched: number
+  qual_total: number
+  ads_resolved: number
+  adsets_resolved: number
+  daily: CrmDaily[]
+  stages: CrmStageRow[]
+  geo: CrmGeoRow[]
+  unmatched: CrmUnmatched
+}
+
 export interface Dataset {
   generated_at: string
   lead_type: string // which action_type is used as the primary "leads"
   account: Account
   project: string
-  plan: { budget: number; leads: number; cpl: number }
+  plan: { budget: number; leads: number; cpl: number; qual: number; cpql: number }
   date_min: string
   date_max: string
   campaigns: Campaign[]
@@ -80,6 +147,9 @@ export interface Dataset {
   ads: Ad[]
   creatives: CreativeGroup[]
   daily: DailyRow[]
+  geo_meta: GeoMetaRow[]
+  country_names: Record<string, string> // ISO code -> Russian name
+  crm?: Crm // absent if the CRM step was skipped
 }
 
 /** Aggregated metric bucket used throughout the UI. */
@@ -92,8 +162,9 @@ export interface Metrics {
   cpm: number
   cpc: number
   ctr: number
-  // CRM phase (null until the CRM export is wired in)
+  // CRM layer — null only when the dataset has no crm block at all
+  crm_leads: number | null // leads the CRM actually recorded (≠ Meta leads)
   qual_leads: number | null
-  cpql: number | null
-  qual_rate: number | null
+  cpql: number | null // spend / qualified leads
+  qual_rate: number | null // qualified / crm_leads, %
 }

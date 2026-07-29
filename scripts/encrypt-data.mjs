@@ -31,7 +31,11 @@ if (!existsSync(IN_FILE)) {
   process.exit(1)
 }
 
-const plaintext = await fs.readFile(IN_FILE)
+// Re-serialise without the indentation: .data/latest.json stays pretty-printed so
+// it can be read during debugging, but the shipped blob has no reason to carry
+// ~120KB of whitespace — the country breakdown alone is over a thousand rows.
+const raw = await fs.readFile(IN_FILE, 'utf8')
+const plaintext = Buffer.from(JSON.stringify(JSON.parse(raw)))
 const salt = crypto.randomBytes(16)
 const iv = crypto.randomBytes(12)
 const key = crypto.pbkdf2Sync(password, salt, ITER, 32, 'sha256')
@@ -53,5 +57,6 @@ const blob = {
 await fs.mkdir(path.dirname(OUT_FILE), { recursive: true })
 await fs.writeFile(OUT_FILE, JSON.stringify(blob))
 console.log(
-  `✔ Encrypted ${(plaintext.length / 1024).toFixed(0)}KB → ${path.relative(ROOT, OUT_FILE)} (${(ct.length / 1024).toFixed(0)}KB)`,
+  `✔ Encrypted ${(raw.length / 1024).toFixed(0)}KB → minified ${(plaintext.length / 1024).toFixed(0)}KB ` +
+    `→ ${path.relative(ROOT, OUT_FILE)} (${(ct.length / 1024).toFixed(0)}KB)`,
 )

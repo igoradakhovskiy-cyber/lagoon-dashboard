@@ -19,6 +19,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { nameMapFor } from './countries.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -37,6 +38,8 @@ const PLAN = {
   budget: Number(process.env.PLAN_BUDGET || 6000),
   leads: Number(process.env.PLAN_LEADS || 300),
   cpl: Number(process.env.PLAN_CPL || 20),
+  qual: Number(process.env.PLAN_QUAL || 30),
+  cpql: Number(process.env.PLAN_CPQL || 200),
 }
 const PREVIEW_FORMAT = process.env.PREVIEW_FORMAT || 'INSTAGRAM_STORY'
 
@@ -264,6 +267,39 @@ async function main() {
   const activeAdIds = new Set(daily.map((r) => r.ad_id))
   console.log(`  ${daily.length} daily rows · ${activeAdIds.size} active ads`)
 
+  // Country breakdown — a SEPARATE insights cut, because Meta refuses to combine
+  // breakdowns=country with level=ad at this volume. Campaign level is enough:
+  // the geo table only ever filters by date and language, and language is a
+  // property of the campaign. Kept per-day so the date presets stay exact.
+  console.log('▶ Fetching country breakdown…')
+  const geoRaw = await graphAll(`${ACCOUNT_ID}/insights`, {
+    level: 'campaign',
+    fields: 'campaign_id,spend,impressions,inline_link_clicks,actions',
+    breakdowns: 'country',
+    time_range: timeRange,
+    time_increment: '1',
+    limit: 500,
+  })
+  const geoMeta = geoRaw
+    .map((r) => {
+      const b = parseLeads(r.actions)
+      return {
+        date: r.date_start,
+        campaign_id: r.campaign_id,
+        country: r.country,
+        // rounded to cents: full float precision would bloat the payload for no gain
+        spend: Math.round((Number(r.spend) || 0) * 100) / 100,
+        impressions: Number(r.impressions) || 0,
+        clicks: Number(r.inline_link_clicks) || 0,
+        leads: b[PRIMARY_LEAD_TYPE === 'lead' ? 'lead' : PRIMARY_LEAD_TYPE === 'offsite_conversion.fb_pixel_lead' ? 'pixel' : 'onsite'] || 0,
+      }
+    })
+    // days where a country saw impressions but cost nothing and produced nothing
+    // add rows without adding information
+    .filter((r) => r.spend > 0 || r.leads > 0)
+  const geoCountries = new Set(geoMeta.map((r) => r.country))
+  console.log(`  ${geoMeta.length} country-day rows · ${geoCountries.size} countries`)
+
   // structure
   console.log('▶ Fetching campaigns / ad sets / ads…')
   const [allCampaigns, allAdsets, allAds] = await Promise.all([
@@ -364,6 +400,9 @@ async function main() {
     ads,
     creatives: [...groups.values()],
     daily,
+    geo_meta: geoMeta,
+    // fetch-crm.mjs adds any ISO code the CRM knows about but Meta never delivered to
+    country_names: nameMapFor(geoCountries),
   }
 
   await fs.writeFile(OUT_FILE, JSON.stringify(dataset, null, 2))
@@ -393,6 +432,21 @@ async function main() {
   const withPoster = ads.filter((a) => a.creative.poster).length
   const withPreview = ads.filter((a) => a.creative.preview_url).length
   console.log(`  posters ${withPoster}/${ads.length} · previews ${withPreview}/${ads.length}`)
+
+  // The country cut is a second query against the same window, so its totals must
+  // land on the ad-level ones. Cents of drift are Meta's own rounding; more than
+  // that means the two cuts disagree and the geo table would quietly mislead.
+  const geoSpend = geoMeta.reduce((s, r) => s + r.spend, 0)
+  const geoLeads = geoMeta.reduce((s, r) => s + r.leads, 0)
+  const spendDrift = Math.abs(geoSpend - tot.spend)
+  const leadDrift = Math.abs(geoLeads - daily.reduce((s, r) => s + r.leads, 0))
+  console.log(`  geo cut     $${geoSpend.toFixed(2)} · ${geoLeads} leads (drift $${spendDrift.toFixed(2)} / ${leadDrift} leads)`)
+  if (spendDrift > Math.max(1, tot.spend * 0.01)) {
+    throw new Error(`country breakdown spend differs from ad-level by $${spendDrift.toFixed(2)}`)
+  }
+  if (leadDrift > 2) {
+    throw new Error(`country breakdown leads differ from ad-level by ${leadDrift}`)
+  }
 }
 
 main().catch((e) => {

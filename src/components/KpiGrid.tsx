@@ -1,8 +1,8 @@
 import type { Dataset, Metrics } from '../types'
 import { aggregate } from '../lib/data'
 import { int, money, moneySmart, pct } from '../lib/format'
-import { Card, PendingBadge } from './ui'
-import { COLORS } from '../config'
+import { Card, InfoDot, PendingBadge } from './ui'
+import { COLORS, QUAL_HINT } from '../config'
 
 function Progress({ value, target, color }: { value: number; target: number; color: string }) {
   const p = target > 0 ? Math.min(100, (value / target) * 100) : 0
@@ -42,16 +42,21 @@ function Stat({
   value,
   accent = COLORS.mute,
   pending = false,
+  hint,
 }: {
   label: string
   value: string
   accent?: string
   pending?: boolean
+  hint?: string
 }) {
   return (
     <Card className="p-3.5">
-      <div className="flex items-center justify-between">
-        <div className="text-[11px] font-medium text-mute uppercase tracking-wide">{label}</div>
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="text-[11px] font-medium text-mute uppercase tracking-wide flex items-center gap-1.5">
+          {label}
+          {hint && !pending && <InfoDot text={hint} />}
+        </div>
         {pending && <PendingBadge />}
       </div>
       <div
@@ -68,7 +73,12 @@ export default function KpiGrid({ ds, metrics }: { ds: Dataset; metrics: Metrics
   const m = metrics
   // Plan progress = month-to-date of the latest data month (all languages).
   const monthPrefix = ds.date_max.slice(0, 7)
-  const month = aggregate(ds.daily.filter((r) => r.date.startsWith(monthPrefix)))
+  const month = aggregate(
+    ds.daily.filter((r) => r.date.startsWith(monthPrefix)),
+    ds.crm ? ds.crm.daily.filter((r) => r.date.startsWith(monthPrefix)) : null,
+  )
+  const hasCrm = m.qual_leads !== null
+  const qualOk = (m.cpql ?? 0) <= ds.plan.cpql
 
   return (
     <section className="space-y-4">
@@ -111,13 +121,33 @@ export default function KpiGrid({ ds, metrics }: { ds: Dataset; metrics: Metrics
         </Card>
       </div>
 
+      {/* Quals lead this row: they are the reason the CRM join exists. Клики and
+          CTR live in the "Охват периода" card above, so they are not repeated. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Stat
+          label="Квал-лиды"
+          value={hasCrm ? int(m.qual_leads!) : '—'}
+          accent={COLORS.qual}
+          pending={!hasCrm}
+          hint={`${QUAL_HINT} План месяца — ${int(ds.plan.qual)}, факт ${int(month.qual_leads || 0)}.`}
+        />
+        <Stat
+          label="Цена квал-лида"
+          value={hasCrm && m.qual_leads ? moneySmart(m.cpql!) : '—'}
+          accent={m.qual_leads ? (qualOk ? COLORS.pos : COLORS.neg) : COLORS.dim}
+          pending={!hasCrm}
+          hint={`Расход ÷ квал-лиды. Цель ≤ ${money(ds.plan.cpql)}.`}
+        />
+        <Stat
+          label="% квала"
+          value={hasCrm && m.crm_leads ? pct(m.qual_rate!, 1) : '—'}
+          accent={COLORS.gold}
+          pending={!hasCrm}
+          hint="Доля квал-лидов среди лидов, дошедших до CRM за период."
+        />
         <Stat label="CPM" value={moneySmart(m.cpm)} accent={COLORS.ink} />
         <Stat label="CPC" value={moneySmart(m.cpc)} accent={COLORS.ink} />
         <Stat label="CTR" value={pct(m.ctr)} accent={COLORS.ctr} />
-        <Stat label="Клики" value={int(m.clicks)} accent={COLORS.ink} />
-        <Stat label="Квал-лиды" value="—" pending />
-        <Stat label="Цена квал-лида" value="—" pending />
       </div>
     </section>
   )
